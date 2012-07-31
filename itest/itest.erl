@@ -1088,7 +1088,7 @@ pool_overflow() ->
     pooler:take_member(),
     % Doesn't matter what we do from here; we're just testing operations with
     % a depleted pool
-    Expected = {error, <<"No connection available or pool out of connections">>},
+    Expected = {error, no_connections},
     Results = chef_sql:fetch_client(<<"orgid">>, <<"somename">>),
     ?assertEqual(Expected, Results).
 
