@@ -310,6 +310,11 @@ basic_test_() ->
      end,
      %% Tests
      [
+      {<<"Database Integration">>,
+       [
+        {<<"Connection pool overflow testing">>, fun pool_overflow/0}
+       ]
+      },
       {<<"Node Operations">>,
        [
         {<<"Insert operations">>, fun insert_node_data/0}
@@ -1072,6 +1077,20 @@ basic_test_() ->
       } %% Environment-filtered Cookbook Versions Tests for a Single Cookbook
 
      ]}.
+
+%%%======================================================================
+%%% DATABASE
+%%%======================================================================
+
+pool_overflow() ->
+    pooler:take_member(),
+    pooler:take_member(),
+    pooler:take_member(),
+    % Doesn't matter what we do from here; we're just testing operations with
+    % a depleted pool
+    Expected = {error, <<"Connection Pool Overflow">>},
+    Results = chef_sql:fetch_client(<<"orgid">>, <<"somename">>),
+    ?assertEqual(Expected, Results).
 
 %%%======================================================================
 %%% NODES
