@@ -109,7 +109,7 @@
 
          is_user_in_org/3,
          connect/0,
-         create_fun/1,
+         create/3,
          bulk_get/4,
          data_bag_exists/3,
          data_bag_names/2,
@@ -309,6 +309,10 @@ create_node(#context{}=Ctx, Node, ActorId) ->
 %% @doc Store a new role in the datastore.
 create_role(#context{}=Ctx, Role, ActorId) ->
     create_object(Ctx, create_role, Role, ActorId).
+
+-spec create_user(#context{}, #chef_user{}, object_id()) -> ok | {conflict, term() | term()}.
+create_user(#context{}=Ctx, User, ActorId) ->
+    create_object(Ctx, create_user, User, ActorId).
 
 -spec create_environment(#context{}, #chef_environment{}, object_id()) -> ok | {conflict, term()} | term().
 %% @doc Store a new environment in the datastore.
@@ -969,25 +973,27 @@ update_fun(#chef_role{}) ->
 update_fun(#chef_cookbook_version{}) ->
     update_cookbook_version.
 
--spec create_fun(chef_object() | #chef_sandbox{}) -> chef_db:create_fun().
-%% @doc Return the atom corresponding to the appropriate create function in the `chef_db'
-%% module for the given `chef_object()' record.
-create_fun(#chef_data_bag{}) ->
-    create_data_bag;
-create_fun(#chef_data_bag_item{}) ->
-    create_data_bag_item;
-create_fun(#chef_environment{}) ->
-    create_environment;
-create_fun(#chef_client{}) ->
-    create_client;
-create_fun(#chef_node{}) ->
-    create_node;
-create_fun(#chef_role{}) ->
-    create_role;
-create_fun(#chef_sandbox{}) ->
-    create_sandbox;
-create_fun(#chef_cookbook_version{}) ->
-    create_cookbook_version.
+-spec create(chef_object() | #chef_sandbox{}, #context{}, object_id()) -> ok | {conflict, term()} | {error, term()}.
+%% @doc Call the appropriate create function based on the given chef_object record
+create(#chef_data_bag{} = Record, DbContext, ActorId) ->
+    create_data_bag(DbContext, Record, ActorId);
+create(#chef_data_bag_item{} = Record, DbContext, ActorId) ->
+    create_data_bag_item(DbContext, Record, ActorId);
+create(#chef_environment{} = Record, DbContext, ActorId) ->
+    create_environment(DbContext, Record, ActorId);
+create(#chef_client{} = Record, DbContext, ActorId) ->
+  create_client(DbContext, Record, ActorId);
+create(#chef_node{} = Record, DbContext, ActorId) ->
+    create_node(DbContext, Record, ActorId);
+create(#chef_user{} = Record, DbContext, ActorId) ->
+    create_user(DbContext, Record, ActorId);
+create(#chef_role{} = Record, DbContext, ActorId) ->
+    create_role(DbContext, Record, ActorId);
+create(#chef_sandbox{} = Record, DbContext, ActorId) ->
+    create_sandbox(DbContext, Record, ActorId);
+create(#chef_cookbook_version{} = Record, DbContext, ActorId) ->
+    create_cookbook_version(DbContext, Record, ActorId).
+
 
 %% -------------------------------------
 %% private functions
