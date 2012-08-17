@@ -989,8 +989,6 @@ create(#chef_user{} = Record, DbContext, ActorId) ->
     create_user(DbContext, Record, ActorId);
 create(#chef_role{} = Record, DbContext, ActorId) ->
     create_role(DbContext, Record, ActorId);
-create(#chef_sandbox{} = Record, DbContext, ActorId) ->
-    create_sandbox(DbContext, Record, ActorId);
 create(#chef_cookbook_version{} = Record, DbContext, ActorId) ->
     create_cookbook_version(DbContext, Record, ActorId).
 
