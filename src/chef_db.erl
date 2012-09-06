@@ -38,6 +38,9 @@
          %% Checksum ops
          mark_checksums_as_uploaded/3,
 
+         %% user ops
+         create_user/3,
+
          %% node ops
          fetch_node/3,
          fetch_nodes/2,
@@ -137,6 +140,7 @@
                       'create_environment' |
                       'create_client' |
                       'create_node' |
+                      'create_user' |
                       'create_role' |
                       'create_sandbox' |
                       'create_cookbook_version'.
@@ -305,7 +309,7 @@ fetch_sql_requestor(Context, OrgName, ClientName) ->
 create_node(#context{}=Ctx, Node, ActorId) ->
     create_object(Ctx, create_node, Node, ActorId).
 
--spec create_role(#context{}, #chef_role{}, object_id()) -> ok | {conflict, term()} | term().
+%%-spec create_role(#context{}, #chef_role{}, object_id()) -> ok | {conflict, term()} | term().
 %% @doc Store a new role in the datastore.
 create_role(#context{}=Ctx, Role, ActorId) ->
     create_object(Ctx, create_role, Role, ActorId).
