@@ -310,7 +310,8 @@ create_node(#context{}=Ctx, Node, ActorId) ->
 create_role(#context{}=Ctx, Role, ActorId) ->
     create_object(Ctx, create_role, Role, ActorId).
 
--spec create_user(#context{}, #chef_user{}, object_id()) -> ok | {conflict, term() | term()}.
+-spec create_user(#context{}, #chef_user{}, object_id()) -> ok | {conflict, term()} | term().
+%% @doc Store a new user in the datastore.
 create_user(#context{}=Ctx, User, ActorId) ->
     create_object(Ctx, create_user, User, ActorId).
 
