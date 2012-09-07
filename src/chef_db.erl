@@ -309,7 +309,7 @@ fetch_sql_requestor(Context, OrgName, ClientName) ->
 create_node(#context{}=Ctx, Node, ActorId) ->
     create_object(Ctx, create_node, Node, ActorId).
 
-%%-spec create_role(#context{}, #chef_role{}, object_id()) -> ok | {conflict, term()} | term().
+-spec create_role(#context{}, #chef_role{}, object_id()) -> ok | {conflict, term()} | term().
 %% @doc Store a new role in the datastore.
 create_role(#context{}=Ctx, Role, ActorId) ->
     create_object(Ctx, create_role, Role, ActorId).
@@ -978,7 +978,7 @@ update_fun(#chef_role{}) ->
 update_fun(#chef_cookbook_version{}) ->
     update_cookbook_version.
 
--spec create(chef_object() | #chef_sandbox{}, #context{}, object_id()) -> ok | {conflict, term()} | {error, term()}.
+-spec create(chef_object() | #chef_user{} | #chef_sandbox{}, #context{}, object_id()) -> ok | {conflict, term()} | {error, term()}.
 %% @doc Call the appropriate create function based on the given chef_object record
 create(#chef_data_bag{} = Record, DbContext, ActorId) ->
     create_data_bag(DbContext, Record, ActorId);
@@ -1005,6 +1005,7 @@ create(#chef_cookbook_version{} = Record, DbContext, ActorId) ->
 -spec create_object(DbContext :: #context{},
                     Fun :: create_fun(),
                     Object :: chef_object() |
+                              #chef_user{} |
                               #chef_sandbox{} |
                               #chef_cookbook_version{},
                     ActorId :: object_id()) -> ok |
