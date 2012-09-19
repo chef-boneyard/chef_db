@@ -277,6 +277,8 @@ setup_env() ->
                                 {<<"validator">>,
                                  fun sqerl_transformers:convert_integer_to_boolean/1},
                                 {<<"admin">>,
+                                 fun sqerl_transformers:convert_integer_to_boolean/1},
+                                {<<"recovery_authentication_enabled">>,
                                  fun sqerl_transformers:convert_integer_to_boolean/1}]
                        end,
     ok = application:set_env(sqerl, column_transforms, ColumnTransforms),
@@ -350,7 +352,12 @@ basic_test_() ->
       },
       {<<"User Operations">>,
        [
-         {<<"Insert operations">>, fun insert_user_data/0}
+         %% Always run fetch user list first, so no users
+         %% yet exist in DB, so results are predictable,
+         %% since we don't clean up after every test
+         {<<"Fetch user list">>, fun fetch_user_list/0},
+         {<<"Insert operations">>, fun insert_user_data/0},
+         {<<"Fetch single user">>, fun fetch_user_data/0}
        ]
       },
       {<<"Client Operations">>,
@@ -1132,6 +1139,25 @@ insert_user_data() ->
   Users = [make_user(<<"user01">>), make_user(<<"user02">>)],
   Expected = lists:duplicate(length(Users), {ok, 1}),
   Results = [chef_sql:create_user(User) || User <- Users ],
+  ?assertEqual(Expected, Results).
+
+fetch_user_data() ->
+  Expected = make_user(<<"user03">>),
+  Username = Expected#chef_user.username,
+  %% Make sure client create succeeds
+  ?assertEqual({ok, 1}, chef_sql:create_user(Expected)),
+  {ok, Result} = chef_sql:fetch_user(Username),
+  ?debugVal(Expected),
+  ?debugVal(Result),
+  ?assertEqual(Expected, Result).
+
+fetch_user_list() ->
+  Users = [make_user(<<"user04">>), make_user(<<"user05">>)],
+  CreatedResults = lists:duplicate(length(Users), {ok, 1}),
+  Created = [chef_sql:create_user(User) || User <- Users ],
+  ?assertEqual(CreatedResults, Created),
+  Results = chef_sql:fetch_users(),
+  Expected = {ok, [ User#chef_user.username || User <- Users ]},
   ?assertEqual(Expected, Results).
 
 %%%======================================================================
