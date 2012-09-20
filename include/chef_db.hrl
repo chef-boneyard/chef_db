@@ -1,4 +1,3 @@
-%% -*- erlang-indent-level: 4;indent-tabs-mode: nil; fill-column: 92-*-
 %% Copyright 2012 Opscode, Inc. All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
@@ -16,18 +15,7 @@
 %% under the License.
 %%
 
-{application, chef_db,
- [
-  {description, "Database abstraction layer for Chef server"},
-  {vsn, git},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  couchbeam,
-                  ejson,
-                  stats_hero,
-                  sqerl
-                 ]},
-  {env, []}
- ]}.
+-record(chef_db_cb_version_delete, {
+          'cookbook_delete' :: boolean(),
+          'deleted_checksums' :: [ Checksum::binary()]
+         }).

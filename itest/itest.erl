@@ -25,6 +25,7 @@
 -define(GET_ARG(Name, Args), proplists:get_value(Name, Args)).
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("chef_db.hrl").
 -include_lib("chef_objects/include/chef_types.hrl").
 
 make_id(Prefix) when is_binary(Prefix) ->
@@ -32,8 +33,8 @@ make_id(Prefix) when is_binary(Prefix) ->
         Size when Size > 32 ->
             error(prefix_too_long_for_id);
         Size when Size =:= 32 ->
-            Prefix;
-        Size ->
+              Prefix;
+          Size ->
             iolist_to_binary([Prefix, lists:duplicate(32 - Size, $0)])
     end.
 
@@ -114,6 +115,7 @@ make_client(Prefix) ->
 	    org_id = the_org_id(),
 	    name = AzId,
 	    authz_id = AzId,
+            admin = true,
 	    validator = false,
 	    public_key =
 	    <<"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwxOFcrbsV7bEbqzOvW5u"
@@ -247,6 +249,8 @@ setup_env() ->
                                [{<<"frozen">>,
                                  fun sqerl_transformers:convert_integer_to_boolean/1},
                                 {<<"validator">>,
+                                 fun sqerl_transformers:convert_integer_to_boolean/1},
+                                {<<"admin">>,
                                  fun sqerl_transformers:convert_integer_to_boolean/1}]
                        end,
     ok = application:set_env(sqerl, column_transforms, ColumnTransforms),
@@ -293,10 +297,13 @@ cleanup_statements() ->
 
 statements(mysql) ->
     {ok, Statements} = file:consult("priv/mysql_statements.config"),
-    Statements ++ cleanup_statements();
+    {ok, HelperStatements} = file:consult("itest/helper_mysql_statements.config"),
+    Statements ++ HelperStatements ++ cleanup_statements();
+
 statements(pgsql) ->
     {ok, Statements} = file:consult("priv/pgsql_statements.config"),
-    Statements ++ cleanup_statements().
+    {ok, HelperStatements} = file:consult("itest/helper_pgsql_statements.config"),
+    Statements ++ HelperStatements ++ cleanup_statements().
 
 basic_test_() ->
     {foreach,
@@ -364,6 +371,9 @@ basic_test_() ->
          {<<"Fetch different version of cookbook returns authzid">>,
           fun fetch_cookbook_version_different_version/0},
          {<<"Fetch versions">>, fun fetch_cookbook_versions/0},
+         {<<"Fetch version for single cookbook, no versions">>, fun fetch_cookbook_versions_single_cookbook_no_versions/0},
+         {<<"Fetch version for single cookbook, with versions">>, fun fetch_cookbook_versions_single_cookbook_with_versions/0},
+
          {<<"Fetch latest version of cookbook">>, fun fetch_latest_cookbook_version/0},
          {<<"Fetch latest version of cookbook, different version on server">>, fun fetch_latest_cookbook_version_different_versions/0},
 	 {<<"Update existing cookbook">>, fun update_cookbook_version_checksums/0},
@@ -1106,9 +1116,7 @@ bulk_fetch_client_data() ->
   Clients =  [ make_client(<<"client_bulk", Num/binary>>) || Num <- [ <<"0">>, <<"1">>, <<"2">> ] ],
   [ ?assertEqual({ok, 1}, chef_sql:create_client(C)) || C <- Clients ],
   Ids = [ C#chef_client.id || C <- Clients ],
-  Expected = [ [{<<"name">>, C#chef_client.name},
-                {<<"clientname">>, C#chef_client.name},
-                {<<"public_key">>, C#chef_client.public_key}] || C <- Clients],
+  Expected = Clients,
 
   {ok, Got} = chef_sql:bulk_get_clients(Ids),
   ?assertEqual(length(Got), 3),
@@ -1420,6 +1428,24 @@ fetch_cookbook_versions() ->
           ?assertMatch( X when is_integer(X) andalso X >= 0, Patch)
       end || Row <- Versions].
 
+fetch_cookbook_versions_single_cookbook_no_versions() ->
+    OrgId = the_org_id(),
+    {ok, Versions} = chef_sql:fetch_cookbook_versions(OrgId, <<"does_not_exist">>),
+    ?assertEqual([], Versions).
+
+fetch_cookbook_versions_single_cookbook_with_versions() ->
+    Cookbook = make_cookbook(<<"fetch_versions_of_me">>),
+    CookbookVersion0 = make_cookbook_version(<<"000fetch_versions_of_me">>, 0, Cookbook),
+    CookbookVersion1 = make_cookbook_version(<<"001fetch_versions_of_me">>, 1, Cookbook),
+    ?assertEqual({ok, 1}, chef_sql:create_cookbook_version(CookbookVersion0)),
+    ?assertEqual({ok, 1}, chef_sql:create_cookbook_version(CookbookVersion1)),
+    {ok, Got} = chef_sql:fetch_cookbook_versions(CookbookVersion0#chef_cookbook_version.org_id,
+                                                 CookbookVersion0#chef_cookbook_version.name),
+    Expected = [[CookbookVersion1#chef_cookbook_version.name, version_tuple(1)],
+                [CookbookVersion0#chef_cookbook_version.name, version_tuple(0)]],
+    ?assertEqual(Expected, Got).
+
+
 %% @doc This tests pulling the latest version of a cookbook using the _latest endpoint
 fetch_latest_cookbook_version() ->
     Cookbook = make_cookbook(<<"the_latest">>),
@@ -1598,32 +1624,69 @@ delete_cookbook_version_checksums() ->
                                            {CookbookVersion#chef_cookbook_version.major,
                                             CookbookVersion#chef_cookbook_version.minor,
                                             CookbookVersion#chef_cookbook_version.patch}}),
-    ?assertEqual({ok, 2}, %% Last version of this cookbook, so deleting the cookbook as well
-                 chef_sql:delete_cookbook_version(Got)),
-    %% TODO - how to check if the checksums have been deleted ?
+
+    %% Verify all checksums exist
+    [Checksum1, Checksum2] = Got#chef_cookbook_version.checksums,
+    ?assertEqual(true, checksum_exists(Got#chef_cookbook_version.org_id, Checksum1)),
+    ?assertEqual(true, checksum_exists(Got#chef_cookbook_version.org_id, Checksum2)),
+
+    %% We should have gotten back a list of deleted checksums
+    #chef_db_cb_version_delete{
+        cookbook_delete=CookbookDeleted,
+        deleted_checksums=DeletedChecksums} = chef_sql:delete_cookbook_version(Got),
+
+    ?assertEqual(true, CookbookDeleted), %% Last version of this cookbook, so deleting the cookbook as well
+    ?assertEqual(lists:sort(Got#chef_cookbook_version.checksums),
+                 lists:sort(DeletedChecksums)),
+
     ?assertEqual(not_found, chef_sql:fetch_cookbook_version(Got#chef_cookbook_version.org_id,
                                                             {Got#chef_cookbook_version.name,
                                                              {Got#chef_cookbook_version.major,
                                                               Got#chef_cookbook_version.minor,
-                                                              Got#chef_cookbook_version.patch}})).
+                                                              Got#chef_cookbook_version.patch}})),
+
+    %% Ensure the checksums don't exist in the checksum table
+    ?assertEqual(false, checksum_exists(Got#chef_cookbook_version.org_id, Checksum1)),
+    ?assertEqual(false, checksum_exists(Got#chef_cookbook_version.org_id, Checksum2)).
 
 %% @doc check that the cookbook row is still in the database until all
 %% versions of the cookbook have been deleted
 delete_cookbook_multiple_versions() ->
     {AuthzId, OrgId, Name} = make_cookbook(<<"delete_multiple">>),
     ?assertEqual(not_found, chef_sql:fetch_cookbook_authz(OrgId, Name)),
+
     CookbookVersion0 = make_cookbook_version(<<"000delete_multiple">>, 0, {AuthzId, OrgId, Name}),
     CookbookVersion1 = make_cookbook_version(<<"001delete_multiple">>, 1, {AuthzId, OrgId, Name}),
-    ?assertEqual({ok, 1}, chef_sql:create_cookbook_version(CookbookVersion0)),
-    ?assertEqual({ok, 1}, chef_sql:create_cookbook_version(CookbookVersion1)),
+    Checksums = [ make_id(<<"checksum1">>),
+                  make_id(<<"checksum2">>)],
+    CookbookVersion20 = CookbookVersion0#chef_cookbook_version{checksums=Checksums},
+    CookbookVersion21 = CookbookVersion1#chef_cookbook_version{checksums=Checksums},
+    ok = chef_sql:mark_checksums_as_uploaded(CookbookVersion20#chef_cookbook_version.org_id,
+                                             Checksums),
+
+    ?assertEqual({ok, 1}, chef_sql:create_cookbook_version(CookbookVersion20)),
+    ?assertEqual({ok, 1}, chef_sql:create_cookbook_version(CookbookVersion21)),
     Got = chef_sql:fetch_cookbook_authz(OrgId, Name),
 
-    ?assertEqual({ok, 1}, chef_sql:delete_cookbook_version(CookbookVersion1)),
+    %% No checksums should be deleted from the checksum table so we should get
+    %% back an empty list.
+    ?assertEqual(#chef_db_cb_version_delete{
+                    cookbook_delete=false,
+                    deleted_checksums=[]}, chef_sql:delete_cookbook_version(CookbookVersion20)),
     Got = chef_sql:fetch_cookbook_authz(OrgId, Name),
 
-    ?assertEqual({ok, 2}, %% Last version of this cookbook, so deleting the cookbook as well
-                 chef_sql:delete_cookbook_version(CookbookVersion0)),
-    not_found = chef_sql:fetch_cookbook_authz(OrgId, Name).
+    %% All checksums should be deleted when the second (and final) cookbook
+    %% version is deleted.
+    #chef_db_cb_version_delete{
+        cookbook_delete=CookbookDeleted,
+        deleted_checksums=DeletedChecksums} = chef_sql:delete_cookbook_version(CookbookVersion21),
+
+    ?assertEqual(true, CookbookDeleted), %% Last version of this cookbook, so deleting the cookbook as well
+    ?assertEqual(lists:sort(Checksums),
+                 lists:sort(DeletedChecksums)),
+
+    %not_found = chef_sql:fetch_cookbook_authz(OrgId, Name).
+    ?assertEqual(not_found, chef_sql:fetch_cookbook_authz(OrgId, Name)).
 
 %% Combined integration test for entire cookbook create workflow.
 %% Starts with (org_id, cookbook_name, cookbook_version)
@@ -1689,10 +1752,11 @@ cookbook_create_new_version() ->
 
 
 
+%% FIXME: move this out into a testing helper module
 
-
-%% Utility Functions for Cookbook Setup
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%------------------------------------------------------------------------------
+%% Cookbook-related Helper Functions
+%%------------------------------------------------------------------------------
 
 %% @doc Just providing a label for the cookbook structure for this test module
 -type cookbook() :: {CookbookAuthzId :: binary(),
@@ -1912,6 +1976,19 @@ insert_recipe_manifest_for_names(EJsonBody, RecipeNames) ->
 encode_and_compress(EJson) ->
     JSON = ejson:encode(EJson),
     zlib:gzip(JSON).
+
+%%------------------------------------------------------------------------------
+%% Checksum-related Helper Functions
+%%------------------------------------------------------------------------------
+
+%% @doc Helper function for testing checksum existence.
+-spec checksum_exists(OrgId :: binary(), ChecksumId :: binary()) ->
+                             boolean() | {error, term()}.
+checksum_exists(OrgId, ChecksumId) ->
+    case sqerl:select(find_checksum_by_id, [OrgId, ChecksumId], first_as_scalar, [checksum]) of
+        {ok, Checksum} -> Checksum =/= none;
+        {error, Reason} -> {error, Reason}
+    end.
 
 %%------------------------------------------------------------------------------
 %% Environment-related Helper Functions

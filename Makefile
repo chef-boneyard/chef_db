@@ -1,4 +1,18 @@
 DEPS=$(CURDIR)/deps
+DIALYZER_DEPS = deps/chef_objects/ebin \
+                deps/depsolver/ebin \
+                deps/ej/ebin \
+                deps/ejson/ebin \
+                deps/emysql/ebin \
+                deps/epgsql/ebin \
+                deps/ibrowse/ebin \
+                deps/mini_s3/ebin \
+                deps/mochiweb/ebin \
+                deps/oauth/ebin \
+                deps/pooler/ebin \
+                deps/sqerl/ebin \
+                deps/stats_hero/ebin
+DEPS_PLT = chef_db.plt
 
 ## Set the environment variable $DB_TYPE to either mysql or pgsql
 ## to run the correct integration tests.
@@ -19,11 +33,11 @@ distclean:
 compile: $(DEPS)
 	@rebar compile
 
-# Not yet since there are a *ton* of warnings that we need to weed through.
-# @dialyzer -Wrace_conditions -Wunderspecs -r ebin
+dialyzer: $(DEPS_PLT)
+	@dialyzer -Wrace_conditions -Wunderspecs --plts ~/.dialyzer_plt $(DEPS_PLT) -r ebin
 
-dialyzer:
-	@dialyzer -Wrace_conditions -Wunderspecs -nn -r ebin
+$(DEPS_PLT):
+	@dialyzer --build_plt $(DIALYZER_DEPS) --output_plt $(DEPS_PLT)
 
 $(DEPS):
 	@rebar get-deps
@@ -47,10 +61,11 @@ itest_clean:
 	@rm -f itest/*.beam
 	@echo Dropping integration test database
 	@cd itest;bundle exec ./create_schema.rb ${DB_TYPE} destroy
+	@rm -rf itest/Gemfile.lock
 
 itest: compile itest_bundler itest_create itest_run itest_clean
 
 itest_run:
-	cd itest;erlc -pz ../deps/chef_objects/ebin *.erl
-	@erl -pa deps/*/ebin -pa ebin -pa itest -noshell -eval "eunit:test(itest, [verbose])" \
+	cd itest;erlc -I ../include -pz ../deps/chef_objects/ebin *.erl
+	@erl -I include -pa deps/*/ebin -pa ebin -pa itest -noshell -eval "eunit:test(itest, [verbose])" \
 	-s erlang halt -db_type $(DB_TYPE)
