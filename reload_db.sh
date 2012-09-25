@@ -57,7 +57,7 @@ if [ "$DB_TYPE" == "mysql" ]; then
 elif [ "$DB_TYPE" == "pgsql" ]; then
   SCHEMA="priv/pgsql_schema.sql"
   DROPDB=$(dropdb -U $USER $DB_NAME)
-  CREATEDB=$(createdb -U $USER $DB_NAME)
+  CREATEDB=$(createdb -U $USER -O $USER $DB_NAME)
   LOADSCHEMA=$(psql -U $USER $DB_NAME < $SCHEMA)
 else
   usage
