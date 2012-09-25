@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Check exit codes on all comamnds execute in script
-# Immediatly exists if any fail
-set -e
+# Immediatly exists if any fail; useful for debugging
+#set -e
 # Trace execution of all commands; useful for debugging
 #set -x
 
