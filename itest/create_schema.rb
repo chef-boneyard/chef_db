@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 
 require 'bundler/setup'
-require 'sequel'
 require 'logger'
 
 module SchemaHelper
