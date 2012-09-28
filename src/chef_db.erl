@@ -234,9 +234,16 @@ fetch_couchdb_client(#context{otto_connection = Server} = Context, OrgName, Clie
         not_found ->
             not_found;
         OrgId ->
-            case chef_otto:fetch_client(Server, OrgId, ClientName) of
-                {not_found, _} -> not_found;
-                Other -> Other
+            case fetch_client_from_cache(OrgId, ClientName) of
+                not_found ->
+                    case chef_otto:fetch_client(Server, OrgId, ClientName) of
+                        {not_found, _} -> not_found;
+                        Other ->
+                            put_client_in_cache(OrgId, ClientName, Other),
+                            Other
+                    end;
+                {ok, Client} ->
+                    Client
             end
     end.
 
@@ -981,7 +988,14 @@ create_object(#context{reqid = ReqId}, Fun, Object, ActorId) ->
     Object1 = chef_object:set_created(Object, ActorId),
     case stats_hero:ctime(ReqId, stats_hero:label(chef_sql, Fun),
                           fun() -> chef_sql:Fun(Object1) end) of
-        {ok, 1} -> ok;
+        {ok, 1} ->
+            case Object of
+                #chef_client{org_id=OrgId, name=Name} ->
+                    put_client_in_cache(OrgId, Name, Object);
+                _ ->
+                    ok
+            end,
+            ok;
         {conflict, Msg}-> {conflict, Msg};
         {error, Why} -> {error, Why}
     end.
@@ -1167,6 +1181,12 @@ delete_object(#context{reqid = ReqId}, Fun, #chef_cookbook_version{} = CookbookV
         Result -> Result
     end;
 delete_object(#context{}=Ctx, Fun, Object) when is_tuple(Object) ->
+    case Object of
+        #chef_client{name=Name, org_id=OrgId} ->
+            remove_client_from_cache(OrgId, Name);
+        _ ->
+            ok
+    end,
     delete_object(Ctx, Fun, get_id(Object));
 delete_object(#context{reqid = ReqId}, Fun, Id) ->
     case stats_hero:ctime(ReqId, stats_hero:label(chef_sql, Fun),
@@ -1185,7 +1205,14 @@ update_object(#context{reqid = ReqId}, ActorId, Fun, Object) ->
     Object1 = chef_object:set_updated(Object, ActorId),
     case stats_hero:ctime(ReqId, stats_hero:label(chef_sql, Fun),
                           fun() -> chef_sql:Fun(Object1) end) of
-        {ok, 1} -> ok;
+        {ok, 1} ->
+            case Object of
+                #chef_client{org_id=OrgId, name=Name} ->
+                    put_client_in_cache(OrgId, Name, Object);
+                _ ->
+                    ok
+            end,
+            ok;
         {ok, not_found} -> not_found;
         {conflict, Message} -> {conflict, Message};
         {error, Error} -> {error, Error}
@@ -1207,3 +1234,23 @@ get_id(#chef_data_bag_item{id = Id}) ->
     Id;
 get_id(#chef_sandbox{id = Id}) ->
     Id.
+
+fetch_client_from_cache(OrgName, ClientName) ->
+    Key = client_cache_key(OrgName, ClientName),
+    case chef_cache:get(chef_clients, Key) of
+        no_cache ->
+            not_found;
+        Result ->
+            Result
+    end.
+
+remove_client_from_cache(OrgId, ClientName) ->
+    Key = client_cache_key(OrgId, ClientName),
+    chef_cache:del(chef_clients, Key).
+
+put_client_in_cache(OrgId, ClientName, Client) ->
+    Key = client_cache_key(OrgId, ClientName),
+    chef_cache:put(chef_clients, Key, Client).
+
+client_cache_key(OrgId, ClientName) ->
+    iolist_to_binary([OrgId, "|", ClientName]).
