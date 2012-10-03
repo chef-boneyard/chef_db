@@ -358,6 +358,7 @@ basic_test_() ->
          {<<"Fetch user list">>, fun fetch_user_list/0},
          {<<"Insert user">>, fun insert_user_data/0},
          {<<"Fetch single user">>, fun fetch_user_data/0},
+         {<<"Update user">>, fun update_user_data/0},
          {<<"Delete user">>, fun delete_user_data/0}
        ]
       },
@@ -1142,6 +1143,7 @@ insert_user_data() ->
   Results = [chef_sql:create_user(User) || User <- Users ],
   ?assertEqual(Expected, Results).
 
+
 fetch_user_data() ->
   Expected = make_user(<<"user03">>),
   Username = Expected#chef_user.username,
@@ -1167,6 +1169,21 @@ delete_user_data() ->
   ?assertEqual({ok, 1}, Result),
   Result1 = chef_sql:fetch_user(Username),
   ?assertEqual({ok, not_found}, Result1).
+
+update_user_data() ->
+  User = make_user(<<"user07">>),
+  Username = User#chef_user.username,
+  ?assertEqual({ok, 1}, chef_sql:create_user(User)),
+
+  UpdatedEmail = <<"newemail@example.org">>,
+  UpdatedUserData = User#chef_user{ email = UpdatedEmail },
+
+  Result = chef_sql:update_user(UpdatedUserData),
+  ?assertEqual({ok, 1}, Result),
+
+  {ok, PersistedUser} = chef_sql:fetch_user(Username),
+  ?assertEqual(UpdatedEmail, PersistedUser#chef_user.email).
+
 
 %%%======================================================================
 %%% CLIENTS
