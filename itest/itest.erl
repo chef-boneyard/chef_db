@@ -133,6 +133,13 @@ make_client(Prefix) ->
 
 make_user(Prefix) ->
   AzId = make_az_id(Prefix),
+  chef_user_record(AzId, false).
+
+make_admin_user(Prefix) ->
+  AzId = make_az_id(Prefix),
+  chef_user_record(AzId, true).
+
+chef_user_record(AzId, Admin) ->
   #chef_user{
     id = AzId,
     authz_id = AzId,
@@ -154,7 +161,7 @@ make_user(Prefix) ->
     updated_at = {datetime, {{2011,10,1},{16,47,46}}},
     external_authentication_uid = <<"an open id of some kind">>,
     recovery_authentication_enabled = false,
-    admin = false
+    admin = Admin
   }.
 
 make_cookbook(Prefix) ->
@@ -359,7 +366,8 @@ basic_test_() ->
          {<<"Insert user">>, fun insert_user_data/0},
          {<<"Fetch single user">>, fun fetch_user_data/0},
          {<<"Update user">>, fun update_user_data/0},
-         {<<"Delete user">>, fun delete_user_data/0}
+         {<<"Delete user">>, fun delete_user_data/0},
+         {<<"Count admin users">>, fun count_admin_users/0}
        ]
       },
       {<<"Client Operations">>,
@@ -1175,15 +1183,24 @@ update_user_data() ->
   Username = User#chef_user.username,
   ?assertEqual({ok, 1}, chef_sql:create_user(User)),
 
-  UpdatedEmail = <<"newemail@example.org">>,
-  UpdatedUserData = User#chef_user{ email = UpdatedEmail },
+  UpdatedUserData = User#chef_user{ admin = true },
 
   Result = chef_sql:update_user(UpdatedUserData),
   ?assertEqual({ok, 1}, Result),
 
   {ok, PersistedUser} = chef_sql:fetch_user(Username),
-  ?assertEqual(UpdatedEmail, PersistedUser#chef_user.email).
+  ?assertEqual(true, PersistedUser#chef_user.admin),
 
+  %% Cleanup admin user so count_admin_users() tests will work
+  chef_sql:delete_user(Username).
+
+count_admin_users() ->
+  User = make_admin_user(<<"user08">>),
+  ?assertEqual({ok, 1}, chef_sql:create_user(User)),
+  ?assertEqual({ok, 1}, chef_sql:count_user_admins()),
+  User2 = make_admin_user(<<"user09">>),
+  ?assertEqual({ok, 1}, chef_sql:create_user(User2)),
+  ?assertEqual({ok, 2}, chef_sql:count_user_admins()).
 
 %%%======================================================================
 %%% CLIENTS
