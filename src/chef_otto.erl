@@ -443,15 +443,18 @@ fetch_nodes(Server, OrgId, EnvName) ->
 fetch_roles_with_ids(Server, OrgId) ->
     fetch_objects_with_ids(Server, OrgId, chef_role).
 
--spec bulk_get(couch_server(), string() | binary(), [binary()]) ->
-    [[tuple()]] | [].
+-spec bulk_get(couch_server(), string() | binary(), [binary()]) -> [tuple()].
 bulk_get(Server, DbName, Ids) ->
     {ok, Db} = couchbeam:open_db(Server, DbName, []),
     {ok, View} = couchbeam:all_docs(Db, [{keys, Ids}, {include_docs, true}]),
     DocCollector = fun(Row, Acc) ->
                       [ ej:get({<<"doc">>}, Row) | Acc ]
                    end,
-    lists:reverse(couchbeam_view:fold(View, DocCollector)).
+    %% There is a apparent bug in CouchDB where documents that have been deleted can still
+    %% be returned as 'null'.  The rest of the code should not have to deal with this, so
+    %% we'll filter out any non-tuple items in our results here.
+    Results = couchbeam_view:fold(View, DocCollector),
+    lists:reverse([Doc || Doc <- Results, is_tuple(Doc)]).
 
 -spec fetch_auth_join_id(couch_server(), db_key(), auth_to_user|user_to_auth) -> id() | {not_found, term()}.
 fetch_auth_join_id(Server, Id, Direction) when is_list(Id) ->
@@ -511,7 +514,7 @@ dbname(OrgId) ->
 serialize_node(Node) when is_binary(Node) ->
     zlib:gzip(Node);
 serialize_node({_}=Node) ->
-    serialize_node(ejson:encode(Node)).
+    serialize_node(chef_json:encode(Node)).
 
 -spec fetch_object(couch_server(), OrgId :: binary(),
                    Name :: binary() | string(),
@@ -632,7 +635,7 @@ couch_json_to_record(chef_node, OrgId, AuthzId, RequesterId, Object) ->
     <<Name/binary>> = ej:get({<<"name">>}, Object),
     <<Environment/binary>> = ej:get({<<"chef_environment">>}, Object),
     Date = sql_date(now),
-    <<NodeJs/binary>> = ejson:encode(cleanup_couch_node_record(Object)),
+    <<NodeJs/binary>> = chef_json:encode(cleanup_couch_node_record(Object)),
     #chef_node{id = ej:get({<<"_id">>}, Object),
                authz_id = AuthzId,
                org_id = OrgId,
@@ -646,7 +649,7 @@ couch_json_to_record(chef_node, OrgId, AuthzId, RequesterId, Object) ->
 couch_json_to_record(chef_role, OrgId, AuthzId, RequesterId, Object) ->
     Name = ej:get({<<"name">>}, Object),
     Date = sql_date(now),
-    RoleJs = ejson:encode(cleanup_couch_role_record(Object)),
+    RoleJs = chef_json:encode(cleanup_couch_role_record(Object)),
     #chef_role{id = ej:get({<<"_id">>}, Object),
                authz_id = AuthzId,
                org_id = OrgId,
@@ -681,7 +684,7 @@ couch_json_to_record(chef_client, OrgId, AuthzId, RequesterId, Object) ->
 couch_json_to_record(chef_environment, OrgId, AuthzId, RequesterId, Object) ->
     Name = ej:get({<<"name">>}, Object),
     Date = sql_date(now),
-    EnvironmentJs = ejson:encode(cleanup_couch_environment_record(Object)),
+    EnvironmentJs = chef_json:encode(cleanup_couch_environment_record(Object)),
     #chef_environment{id = ej:get({<<"_id">>}, Object),
                authz_id = AuthzId,
                org_id = OrgId,
@@ -694,7 +697,7 @@ couch_json_to_record(chef_environment, OrgId, AuthzId, RequesterId, Object) ->
 couch_json_to_record(chef_data_bag_item, OrgId, _AuthzId, RequesterId, Object) ->
     Name = ej:get({<<"name">>}, Object),
     Date = sql_date(now),
-    Data_Bag_ItemJs = ejson:encode(cleanup_couch_data_bag_item_record(Object)),
+    Data_Bag_ItemJs = chef_json:encode(cleanup_couch_data_bag_item_record(Object)),
     #chef_data_bag_item{id = ej:get({<<"_id">>}, Object),
                         org_id = OrgId,
                         item_name = Name,
