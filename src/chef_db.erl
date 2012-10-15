@@ -42,6 +42,7 @@
          fetch_users/1,
          create_user/3,
          delete_user/2,
+         update_user/3,
          count_user_admins/1,
 
          %% node ops
@@ -128,7 +129,6 @@
 -include_lib("chef_objects/include/chef_types.hrl").
 -include_lib("chef_objects/include/chef_osc_defaults.hrl").
 -include_lib("stats_hero/include/stats_hero.hrl").
-
 
 -record(context, {reqid :: binary(),
                   otto_connection}).
@@ -727,6 +727,10 @@ update_client(#context{}=Ctx, Client, ActorId) ->
 update_data_bag_item(#context{}=Ctx, DataBagItem, ActorId) ->
     update_object(Ctx, ActorId, update_data_bag_item, DataBagItem).
 
+%% Update data for a User.
+update_user(#context{}=Ctx, User, ActorId) ->
+    update_object(Ctx, ActorId, update_user, User).
+
 -spec update_cookbook_version(DbContext :: #context{},
                               CBVersion :: #chef_cookbook_version{},
                               ActorId :: object_id()) -> ok | {conflict, _} | {error, _}.
@@ -970,7 +974,9 @@ update_fun(#chef_node{}) ->
 update_fun(#chef_role{}) ->
     update_role;
 update_fun(#chef_cookbook_version{}) ->
-    update_cookbook_version.
+    update_cookbook_version;
+update_fun(#chef_user{}) ->
+    update_user.
 
 -spec create(chef_object() | #chef_user{} | #chef_sandbox{}, #context{}, object_id()) -> ok | {conflict, term()} | {error, term()}.
 %% @doc Call the appropriate create function based on the given chef_object record
@@ -990,7 +996,6 @@ create(#chef_role{} = Record, DbContext, ActorId) ->
     create_role(DbContext, Record, ActorId);
 create(#chef_cookbook_version{} = Record, DbContext, ActorId) ->
     create_cookbook_version(DbContext, Record, ActorId).
-
 
 %% -------------------------------------
 %% private functions
@@ -1222,7 +1227,12 @@ update_object(#context{reqid = ReqId}, ActorId, Fun, Object) ->
         {error, Error} -> {error, Error}
     end.
 
-  -spec get_id(chef_object() | #chef_user{} | #chef_client{} | #chef_sandbox{} | #chef_cookbook_version{}) -> object_id().
+as_bin(S) when is_list(S) ->
+    list_to_binary(S);
+as_bin(B) when is_binary(B) ->
+    B.
+
+-spec get_id(chef_object() | #chef_user{} | #chef_client{} | #chef_sandbox{} | #chef_cookbook_version{}) -> object_id().
 %% @doc Return the `id' field from a `chef_object()' record type.
 get_id(#chef_client{id = Id}) ->
     Id;
