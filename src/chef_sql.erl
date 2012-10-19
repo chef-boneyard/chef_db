@@ -38,6 +38,7 @@
          fetch_user/1,
          fetch_users/0,
          create_user/1,
+         update_user/1,
          delete_user/1,
          count_user_admins/0,
 
@@ -163,6 +164,18 @@ fetch_user(UserName) ->
 %% doc Insert user data into database
 create_user(#chef_user{}=User) ->
     create_object(User).
+
+-spec update_user(#chef_user{}) -> {ok, 1 | not_found} | {error, term()}.
+update_user(#chef_user{last_updated_by = LastUpdatedBy,
+                       updated_at      = UpdatedAt,
+                       admin           = IsAdmin,
+                       public_key      = PublicKey,
+                       hashed_password = HashedPassword,
+                       salt            = Salt,
+                       hash_type       = HashType,
+                       id              = Id }) ->
+                UpdateFields = [IsAdmin =:= true, PublicKey, HashedPassword, Salt, HashType, LastUpdatedBy, UpdatedAt, Id],
+                do_update(update_user_by_id, UpdateFields).
 
 -spec delete_user(bin_or_string()) -> {ok, 1 | 'none' | 'not_found'} | {error, term()}.
 delete_user(Username) when is_list(Username) ->
