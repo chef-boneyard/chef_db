@@ -49,7 +49,6 @@
 
          %% fetch_data_bag_items/2,
          %% fetch_data_bag_items_with_ids/2,
-
          %% fetch_cookbooks/2,
 
          fetch_by_name/4,
@@ -116,7 +115,28 @@ ping() ->
 -spec is_user_in_org(couch_server(), object_id(), binary()) -> boolean().
 %% @doc Return true if `User' is in `OrgName' and false otherwise.
 is_user_in_org(Server, UserId, OrgName) when is_binary(OrgName) ->
-    lists:member(OrgName, fetch_orgs_for_user_id(Server, UserId)).
+    OrgId = fetch_guid_for_orgname(Server, OrgName),
+    {ok, Db} = couchbeam:open_db(Server, ?user_db, []),
+    {ok, View} = couchbeam:view(Db, {?organization_user_design,
+                                     "by_organization_user"},
+                                [{key, [OrgId, UserId]}, {include_docs, false}]),
+    {ok, Res} = couchbeam_vew:fetch(View),
+
+    %% instead of iterating through the list of organization documents, we can
+    %% assume that if there is a row returned from cocuchdb then we have a
+    %% match in the organization_user view and the user is a member of the org
+    TotalRows = ej:get({<<"total_rows">>}, Res),
+    TotalRows >= 1.
+
+-spec fetch_guid_for_orgname(couch_server(), binary()) -> binary().
+%% @doc Return the Guid for a given organization name
+fetch_guid_for_orgname(Server, OrgName) ->
+    {ok, Db} = couchbeam:open_db(Server, ?user_db, []),
+    {ok, View} = couchbeam:view(Db, {?mixlib_auth_org_design, "by_name"},
+                                [{key, OrgName},{include_docs, true}]),
+    {ok, Res} = couchbeam_view:fetch(View),
+    OrgDoc = hd(ej:get({<<"rows">>}, Res)),
+    ej:get({<<"guid">>}, OrgDoc).
 
 -spec fetch_orgs_for_user_id(couch_server(), object_id()) -> [binary()].
 %% @doc Return the list of organization names that username `User' is associated with
