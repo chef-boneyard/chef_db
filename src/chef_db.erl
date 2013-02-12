@@ -810,9 +810,10 @@ node_record_to_authz_id(_Context, NodeRecord) ->
 
 -spec is_user_in_org(#context{}, binary(), binary()) -> boolean() | {error, _}.
 is_user_in_org(#context{reqid = ReqId, otto_connection = S}=Ctx, User, OrgName) ->
+    OrgId = fetch_org_id(Ctx, OrgName),
     case fetch_user(Ctx, User) of
         #chef_user{id = UserId} ->
-            ?SH_TIME(ReqId, chef_otto, is_user_in_org, (S, UserId, OrgName));
+            ?SH_TIME(ReqId, chef_otto, is_user_in_org, (S, UserId, OrgId));
         not_found ->
             false;
         {error, Why} ->
