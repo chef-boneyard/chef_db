@@ -59,7 +59,7 @@ fetch_requestor_test_() ->
                                  admin = <<"false">>
                                },
                meck:expect(chef_sql, fetch_user, fun(<<"alice">>) -> {ok, User } end),
-               Context = chef_db:make_context(<<"req-id-123">>, undefined),
+               Context = chef_db:make_context(<<"req-id-123">>),
                Got = chef_db:fetch_requestor(Context, <<"mock-org">>, <<"alice">>),
                ?assertEqual(Got, User),
                Stats = stats_hero:snapshot(<<"req-id-123">>, all),
@@ -86,7 +86,7 @@ fetch_requestor_test_() ->
                                    <<"mock-org-id-123">>
                            end),
                %% meck:expect(chef_db_darklaunch, is_enabled,
-               %%             fun(<<"sql_users">>) -> true end),
+               %%             fun(<<"sql_users">>, _) -> true end),
                meck:expect(chef_db_darklaunch, is_enabled,
                            fun(<<"couchdb_clients">>, _) -> false end),
                meck:expect(chef_sql, fetch_user,
@@ -99,7 +99,7 @@ fetch_requestor_test_() ->
                                      public_key = <<"key data">>},
                meck:expect(chef_sql, fetch_client,
                            fun(<<"mock-org-id-123">>, <<"alice">>) -> {ok, Client} end),
-               Context = chef_db:make_context(<<"req-id-123">>, undefined),
+               Context = chef_db:make_context(<<"req-id-123">>),
                Got = chef_db:fetch_requestor(Context, <<"mock-org">>, <<"alice">>),
                ?assertEqual(Got, Client)
        end
@@ -125,7 +125,7 @@ fetch_requestor_test_() ->
                                   public_key = <<"key data">>},
                meck:expect(chef_sql, fetch_client,
                            fun(<<"mock-org-id-123">>, <<"alice">>) -> {ok, Client} end),
-               Context = chef_db:make_context(<<"req-id-123">>, undefined),
+               Context = chef_db:make_context(<<"req-id-123">>),
                Got = chef_db:fetch_requestor(Context, <<"mock-org">>, <<"alice">>),
                ?assertEqual(Got, Client),
                Stats = stats_hero:snapshot(<<"req-id-123">>, all),
@@ -160,7 +160,7 @@ fetch_requestor_test_() ->
                                      public_key = <<"key data">>},
                meck:expect(chef_otto, fetch_client,
                            fun(_, O, <<"alice">>) when O =:= OrgId -> Client end),
-               Context = chef_db:make_context(<<"req-id-123">>, undefined),
+               Context = chef_db:make_context(<<"req-id-123">>),
                Got = chef_db:fetch_requestor(Context, <<"mock-org">>, <<"alice">>),
                ?assertEqual(Got, Client),
                Stats = stats_hero:snapshot(<<"req-id-123">>, all),
@@ -200,7 +200,7 @@ fetch_cookbook_versions_test_() ->
              SqlOutput = [[ ]],
              meck:expect(chef_sql, fetch_cookbook_versions,
                          fun(_) -> {ok, SqlOutput} end),
-             Ctx = chef_db:make_context(<<"req-id-123">>, undefined),
+             Ctx = chef_db:make_context(<<"req-id-123">>),
              ?assertEqual(SqlOutput, chef_db:fetch_cookbook_versions(Ctx, <<"mock-org">>))
          end},
       {"fetch_cookbook_versions collects stats_hero metrics",
@@ -208,7 +208,7 @@ fetch_cookbook_versions_test_() ->
              SqlOutput = [[ ]],
              meck:expect(chef_sql, fetch_cookbook_versions,
                          fun(_) -> {ok, SqlOutput} end),
-             Ctx = chef_db:make_context(<<"req-id-123">>, undefined),
+             Ctx = chef_db:make_context(<<"req-id-123">>),
              SqlOutput = chef_db:fetch_cookbook_versions(Ctx, <<"mock-org">>),
              Stats = stats_hero:snapshot(<<"req-id-123">>, all),
              ExpectKeys = [<<"req_time">>,
@@ -228,21 +228,21 @@ fetch_cookbook_versions_test_() ->
              SqlOutput = [[ <<"foo">>, {1, 2, 3} ]],
              meck:expect(chef_sql, fetch_cookbook_versions,
                          fun(_) -> {ok, SqlOutput} end),
-             Ctx = chef_db:make_context(<<"req-id-123">>, undefined),
+             Ctx = chef_db:make_context(<<"req-id-123">>),
              ?assertEqual(SqlOutput, chef_db:fetch_cookbook_versions(Ctx, <<"mock-org">>))
          end},
        {"fetch_cookbook_versions handles errors",
          fun() ->
              meck:expect(chef_sql, fetch_cookbook_versions,
                          fun(_) -> {error, internal_error} end),
-             Ctx = chef_db:make_context(<<"req-id-123">>, undefined),
+             Ctx = chef_db:make_context(<<"req-id-123">>),
              ?assertEqual({error, internal_error}, chef_db:fetch_cookbook_versions(Ctx, <<"mock-org">>))
          end},
        {"fetch_cookbook_versions handles errors",
          fun() ->
              meck:expect(chef_sql, fetch_cookbook_versions,
                          fun(_) -> {error, internal_error} end),
-             Ctx = chef_db:make_context(<<"req-id-123">>, undefined),
+             Ctx = chef_db:make_context(<<"req-id-123">>),
              ?assertEqual({error, internal_error}, chef_db:fetch_cookbook_versions(Ctx, <<"mock-org">>))
          end}
      ]

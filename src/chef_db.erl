@@ -116,9 +116,16 @@
          bulk_get/4,
          data_bag_exists/3,
          data_bag_names/2,
-         environment_exists/3,
-         make_context/2,
-         make_context/3]).
+         environment_exists/3]).
+
+%%
+%% This form is only usable when we are building open source chef.
+-ifndef(CHEF_DB_DARKLAUNCH).
+-export([make_context/1]).
+-endif.
+
+-export([make_context/3]).
+-export([darklaunch_from_context/1]).
 
 -include_lib("chef_db/include/chef_db.hrl").
 -include_lib("chef_objects/include/chef_types.hrl").
@@ -127,7 +134,7 @@
 
 -record(context, {reqid :: binary(),
                   otto_connection,
-                  darklaunch}).
+                  darklaunch = undefined}).
 
 -define(gv(Key, PList), proplists:get_value(Key, PList)).
 
@@ -176,11 +183,16 @@
 -include_lib("eunit/include/eunit.hrl").
 %% -endif.
 
-make_context(ReqId, Darklaunch) ->
-    #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = chef_otto:connect()}.
+-ifndef(CHEF_DB_DARKLAUNCH).
+make_context(ReqId) ->
+    #context{reqid = ReqId, darklaunch = undefined, otto_connection = chef_otto:connect()}.
+-endif.
 
 make_context(ReqId, Darklaunch, OttoServer) ->
     #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = OttoServer}.
+
+darklaunch_from_context(#context{darklaunch = Darklaunch}) ->
+    Darklaunch.
 
 %%%
 %%% User access

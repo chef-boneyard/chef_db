@@ -23,13 +23,13 @@
 %% define. The default included here ignores `OrgName' and answers
 %% false to all couchdb_* features and true otherwise.
 -ifndef(CHEF_DB_DARKLAUNCH).
-is_enabled(<<"couchdb_", _Rest/binary>>, _Darklaunch) ->
+is_enabled(<<"couchdb_", _Rest/binary>>, undefined) ->
     false;
-is_enabled(_, _Darklaunch) ->
+is_enabled(_, undefined) ->
     true.
 -else.
-is_enabled(Feature, OrgName) ->
-    ?CHEF_DB_DARKLAUNCH:is_enabled(Feature, OrgName).
+is_enabled(Feature, Darklaunch) ->
+    ?CHEF_DB_DARKLAUNCH:is_enabled(Feature, Darklaunch).
 -endif.
 
 
