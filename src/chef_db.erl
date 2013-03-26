@@ -124,7 +124,7 @@
 -export([make_context/1]).
 -endif.
 
--export([make_context/3]).
+-export([make_context_dl/2, make_context/3]).
 -export([darklaunch_from_context/1]).
 
 -include_lib("chef_db/include/chef_db.hrl").
@@ -187,6 +187,10 @@
 make_context(ReqId) ->
     #context{reqid = ReqId, darklaunch = undefined, otto_connection = chef_otto:connect()}.
 -endif.
+
+make_context_dl(ReqId, Darklaunch) ->
+    #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = chef_otto:connect()}.
+
 
 make_context(ReqId, Darklaunch, OttoServer) ->
     #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = OttoServer}.
