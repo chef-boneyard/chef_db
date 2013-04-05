@@ -27,6 +27,12 @@
 -module(chef_db).
 
 -export([
+         %% Context record manipulation
+         make_context/1,
+         make_context/2,
+         make_context/3,
+         darklaunch_from_context/1,
+
          create_name_id_dict/3,
 
          user_record_to_authz_id/2,
@@ -118,15 +124,6 @@
          data_bag_names/2,
          environment_exists/3]).
 
-%%
-%% This form is only usable when we are building open source chef.
--ifndef(CHEF_DB_DARKLAUNCH).
--export([make_context/1]).
--endif.
-
--export([make_context_dl/2, make_context/3]).
--export([darklaunch_from_context/1]).
-
 -include_lib("chef_db/include/chef_db.hrl").
 -include_lib("chef_objects/include/chef_types.hrl").
 -include_lib("chef_objects/include/chef_osc_defaults.hrl").
@@ -179,18 +176,15 @@
 %% -type chef_object_name() :: 'chef_node' |
 %%                             'chef_role'.
 
-%% -ifdef(TEST).
+-ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
-%% -endif.
-
--ifndef(CHEF_DB_DARKLAUNCH).
-make_context(ReqId) ->
-    #context{reqid = ReqId, darklaunch = undefined, otto_connection = chef_otto:connect()}.
 -endif.
 
-make_context_dl(ReqId, Darklaunch) ->
-    #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = chef_otto:connect()}.
+make_context(ReqId) ->
+    #context{reqid = ReqId, darklaunch = undefined, otto_connection = chef_otto:connect()}.
 
+make_context(ReqId, Darklaunch) ->
+    #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = chef_otto:connect()}.
 
 make_context(ReqId, Darklaunch, OttoServer) ->
     #context{reqid = ReqId, darklaunch = Darklaunch, otto_connection = OttoServer}.
