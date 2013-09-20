@@ -1852,7 +1852,7 @@ cookbook_create_from_scratch() ->
     Cookbook = {AzId, OrgId, Name},
 
     %% Step 3.
-    %% TODO: add chef_object:new_record for this
+    %% TODO: add chef_object_base:new_record for this
     CbVersion = make_cookbook_version(<<"001itest_create">>, 1, Cookbook),
 
     %% Step 3a.
