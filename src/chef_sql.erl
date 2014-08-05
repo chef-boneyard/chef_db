@@ -92,6 +92,9 @@
          %% for license
          count_nodes/0,
 
+         %% user-org ops
+         is_user_in_org_by_orgid/2,
+
          sql_now/0,
          ping/0,
          statements/0,
@@ -135,6 +138,14 @@ ping() ->
 %% Return a node count
 count_nodes() ->
     sqerl:select(count_nodes, [], first_as_scalar, [count]).
+
+%%
+%% user-org membership ops
+%% see also: oc_chef_authz/oc_chef_user_org_association
+%%           oc_chef_authz/oc_chef_db
+%%
+is_user_in_org_by_orgid(UserName, OrgId) ->
+    sqerl:select(is_user_in_org, [UserName, OrgId], first_as_scalar, [count]).
 
 %%
 %% chef user ops
@@ -553,7 +564,7 @@ fetch_latest_cookbook_version(OrgId, CookbookName) ->
 -spec create_cookbook_version(#chef_cookbook_version{}) ->
     {ok, non_neg_integer()} | {error, term()}.
 create_cookbook_version(CookbookVersion) ->
-    
+
     case create_cookbook_if_needed(CookbookVersion) of
         ok ->
             create_object(CookbookVersion);
@@ -702,7 +713,7 @@ fetch(Record) ->
 -spec select_rows(
         {QueryName, BindParameters } |
         {QueryName, BindParameters, ReturnTransform} |
-        {QueryName, BindParameters, ReturnFieldNames}         
+        {QueryName, BindParameters, ReturnFieldNames}
      ) ->
                          chef_object:select_return()  when
       QueryName ::atom(),
