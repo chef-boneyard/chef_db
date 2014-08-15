@@ -92,6 +92,9 @@
          %% for license
          count_nodes/0,
 
+         %% for orgs
+         fetch_org_id/1,
+
          sql_now/0,
          ping/0,
          statements/0,
@@ -135,6 +138,19 @@ ping() ->
 %% Return a node count
 count_nodes() ->
     sqerl:select(count_nodes, [], first_as_scalar, [count]).
+
+%%
+%% for organization id (only for enterprise chef)
+%%
+fetch_org_id(OrgName) ->
+    case sqerl:select(fetch_org_id_by_name, [OrgName], first_as_scalar, [id]) of
+        {ok, L} when is_list(L) ->
+            {ok, L};
+        {ok, none} ->
+            {ok, []};
+        {error, Error} ->
+            {error, Error}
+    end.
 
 %%
 %% chef user ops
