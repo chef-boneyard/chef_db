@@ -1,12 +1,13 @@
 %% ex: ts=4 sw=4 et
-%% @author Seth Falcon <seth@opscode.com>
-%% @author Mark Anderson <mark@opscode.com>
-%% @author Christopher Maier <cm@opscode.com>
-%% @author James Casey <james@opscode.com>
-%% @author Mark Mzyk <mmzyk@opscode.com>
-%% @author Seth Chisamore <schisamo@opscode.com>
-%% @author Ho-Sheng <hosh@opscode.com>
-%% Copyright 2011-2013 Opscode, Inc. All Rights Reserved.
+%% @author Seth Falcon <seth@getchef.com>
+%% @author Mark Anderson <mark@getchef.com>
+%% @author Christopher Maier <cm@getchef.com>
+%% @author James Casey <james@getchef.com>
+%% @author Mark Mzyk <mmzyk@getchef.com>
+%% @author Seth Chisamore <schisamo@getchef.com>
+%% @author Ho-Sheng <hosh@getchef.com>
+%% @author Marc Pardise <marc@getchef.com>
+%% Copyright 2011-2014 Chef Software, Inc. All Rights Reserved.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -92,6 +93,9 @@
          %% for license
          count_nodes/0,
 
+         %% user-org ops
+         is_user_in_org_by_orgid/2,
+
          sql_now/0,
          ping/0,
          statements/0,
@@ -135,6 +139,21 @@ ping() ->
 %% Return a node count
 count_nodes() ->
     sqerl:select(count_nodes, [], first_as_scalar, [count]).
+
+%%
+%% user-org membership ops
+%% see also: oc_chef_authz/oc_chef_user_org_association
+%%           oc_chef_authz/oc_chef_db
+%%
+%% *************************************************************
+%%                         NOT FOR RELEASE!
+%% Temporary hack - required until org creation knows about sql associations
+%%                         NOT FOR RELEASE!
+%% *************************************************************
+is_user_in_org_by_orgid(<<"pivotal">>, _) ->
+    {ok, 1};
+is_user_in_org_by_orgid(UserName, OrgId) ->
+    sqerl:select(user_in_org, [UserName, OrgId], first_as_scalar, [count]).
 
 %%
 %% chef user ops
@@ -553,7 +572,7 @@ fetch_latest_cookbook_version(OrgId, CookbookName) ->
 -spec create_cookbook_version(#chef_cookbook_version{}) ->
     {ok, non_neg_integer()} | {error, term()}.
 create_cookbook_version(CookbookVersion) ->
-    
+
     case create_cookbook_if_needed(CookbookVersion) of
         ok ->
             create_object(CookbookVersion);
@@ -702,7 +721,7 @@ fetch(Record) ->
 -spec select_rows(
         {QueryName, BindParameters } |
         {QueryName, BindParameters, ReturnTransform} |
-        {QueryName, BindParameters, ReturnFieldNames}         
+        {QueryName, BindParameters, ReturnFieldNames}
      ) ->
                          chef_object:select_return()  when
       QueryName ::atom(),
@@ -711,7 +730,8 @@ fetch(Record) ->
       ReturnTransform :: tuple().
 select_rows({Query, BindParameters}) ->
     match_result(sqerl:select(Query, BindParameters));
-select_rows({Query, BindParameters, Transform}) when is_tuple(Transform) ->
+select_rows({Query, BindParameters, Transform}) when is_tuple(Transform);
+                                                     Transform == rows ->
     match_result(sqerl:select(Query, BindParameters, Transform));
 select_rows({Query, BindParameters, Fields = [_|_]}) ->
     match_result(sqerl:select(Query, BindParameters, rows_as_scalars, Fields)).
