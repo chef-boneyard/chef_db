@@ -23,12 +23,14 @@
 
 %% The darklaunch module used by chef_db can be set using this
 %% define. The default included here ignores `OrgName' and answers
-%% false to all couchdb_* features and true otherwise.
+%% use_couchdb to all couchdb_* features.  That value is set
+%% in opscode-omnibus/opscode-omnibus/files/private-chef-cookbooks/
+%% private-chef/templates/default/oc_erchef_config.erb
 -ifndef(CHEF_DB_DARKLAUNCH).
 is_enabled(<<"couchdb_", _Rest/binary>>, _) ->
-    false;
+  envy:get('opscode-erchef', use_couchdb, boolean);
 is_enabled(_, _) ->
-    true.
+  ~envy:get(chef_db, use_couchdb, boolean);
 -else.
 is_enabled(Feature, Darklaunch) ->
     ?CHEF_DB_DARKLAUNCH:is_enabled(Feature, Darklaunch).
