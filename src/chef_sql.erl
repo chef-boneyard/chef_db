@@ -584,13 +584,11 @@ cookbook_versions_array_to_binary([], Acc, EndBin, _Sep) ->
 %%
 %%
 -spec cookbook_version_to_binary(versioned_cookbook()) -> binary().
-cookbook_version_to_binary(CkbVer) ->
-    Name = element(1, CkbVer),
-    Version = element(2, CkbVer),
-    Major = list_to_binary(integer_to_list(element(1, Version))),
-    Minor = list_to_binary(integer_to_list(element(2, Version))),
-    Patch = list_to_binary(integer_to_list(element(3, Version))),
-    <<"\"(", Name/binary, ",", Major/binary, ",", Minor/binary, ",", Patch/binary, ")\"">>.
+cookbook_version_to_binary({Name, {MajorInt, MinorInt, PatchInt}}) ->
+    iolist_to_binary([<<"\"(">>, Name, <<",">>,
+                      integer_to_binary(MajorInt), <<",">>,
+                      integer_to_binary(MinorInt), <<",">>,
+                      integer_to_binary(PatchInt), <<")\"">>]).
 
 %% cookbook version ops
 -spec fetch_cookbook_version(OrgId::object_id(),
